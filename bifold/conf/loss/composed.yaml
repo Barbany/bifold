@@ -1,0 +1,6 @@
+---
+name: composed
+loss_names: [bce_gaussmap, bce_mask]
+weights: [2, 1]
+is_bimanual: ${train_dataset.is_bimanual}
+mask_pick_heatmap: true

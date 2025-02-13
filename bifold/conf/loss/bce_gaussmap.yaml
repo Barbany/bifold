@@ -1,0 +1,4 @@
+---
+name: bce_gaussmap
+is_bimanual: ${train_dataset.is_bimanual}
+mask_pick_heatmap: false

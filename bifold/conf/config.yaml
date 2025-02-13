@@ -1,0 +1,59 @@
+---
+defaults:
+  - _self_
+  - model: siglip_sequential
+  - dataset@train_dataset: bimanual_sequential
+  - dataset@test_dataset: none
+  - processor: default
+  - loss: bce_gaussmap
+  - optim: adam
+  - scheduler: none
+  - override hydra/hydra_logging: disabled
+seed: 3407
+eval_only: false
+eval_epochs: 20
+save_epochs: null
+load_best: false
+use_wandb: true
+num_workers: 6
+batch_size: 2
+gradient_clip: null
+test_batch_size: 2
+epochs: 100
+debug: false
+num_evals: 50 # only used in simulator-only evaluation
+metrics:
+  computed_metrics: [kp_mse, ap_5, ap_10, ap_20, ap_50, iou, quantile_prob]
+  tracked_metric: kp_mse
+use_cpu: false
+simulator: softgym
+dataset_root: ${oc.env:HOME}/bifold/datasets
+softgym_cache: ${dataset_root}/softgym_cache
+visualize_model_inputs: false
+visualize_predictions: false
+hydra:
+  output_subdir:
+  run:
+    dir: ${oc.env:HOME}/bifold/outputs/${train_dataset.name}/${hydra.job.override_dirname}
+  job:
+    chdir: true
+    config:
+      override_dirname:
+        exclude_keys:
+          - seed
+          - simulator
+          - use_wandb
+          - eval_only
+          - eval_epochs
+          - save_epochs
+          - dataset
+          - dataset_root
+          - num_evals
+          - softgym_task
+          - softgym_cache
+          - num_workers
+          - load_best
+          - test_batch_size
+          - visualize_predictions
+          - use_cpu
+          - debug

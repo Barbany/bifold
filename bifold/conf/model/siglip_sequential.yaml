@@ -1,0 +1,23 @@
+---
+name: siglip_sequential
+image_size: ${train_dataset.image_size}
+is_bimanual: ${train_dataset.is_bimanual}
+requires_graph: false
+patch_size: 16
+automodel_name: google/siglip-base-patch${model.patch_size}-${model.image_size}
+dim: 768
+emb_dropout: 0.0
+lora: true
+r: 8
+lora_alpha: 32
+lora_dropout: 0.01
+target_modules: [q_proj, v_proj]
+threshold: 0.5
+text_encoder: null
+pick_place_model: pick_place_convdecoder
+fusion_model: concat_transformer
+depth: 8
+heads: 16
+mlp_ratio: 4
+dropout: 0.0
+context_length: ${train_dataset.max_context_length}

@@ -1,0 +1,19 @@
+text_encoder: ${model.text_encoder}
+sigma: 5
+model_image_size: ${model.image_size} 
+requires_graph: ${model.requires_graph}
+spatial_augment: true
+spatial_augmentations:
+  max_augmentation_trials: 5
+  rotate_augmentation: [-5, 6]
+  translate_augmentation: [-5, 6]
+image_mean: [0.48145466, 0.4578275, 0.40821073]
+image_std: [0.26862954, 0.26130258, 0.27577711]
+standardize_depth: false
+mask_depth: true
+strategy: gmm
+depth_augmentations:
+  add_depth_noise: false
+  random_depth_shift: false
+  min_shift: -0.2
+  max_shift: 0.2

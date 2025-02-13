@@ -1,0 +1,16 @@
+---
+name: rgb_clip
+image_size: 224
+is_bimanual: ${train_dataset.is_bimanual}
+requires_graph: false
+text_encoder:  ViT-B/16
+patch_size: 16
+depth: 8
+heads: 16
+mlp_ratio: 4
+dropout: 0.0
+text_dropout: 0.0
+rgb_dropout: 0.0
+pick_place_model: pick_place_convdecoder
+fusion_model: concat_transformer
+

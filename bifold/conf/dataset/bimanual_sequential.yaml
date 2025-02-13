@@ -1,0 +1,11 @@
+---
+name: bimanual_sequential
+dataset_path: ${dataset_root}/folding
+image_size: 384 
+depth_scale: 1000
+is_bimanual: true
+voxel_size: 0.125
+neighbor_radius: 0.45
+num_nodes: 200
+max_context_length: 3
+

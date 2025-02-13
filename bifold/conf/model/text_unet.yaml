@@ -1,0 +1,9 @@
+---
+name: text_unet
+image_size: ${train_dataset.image_size}
+is_bimanual: ${train_dataset.is_bimanual}
+requires_graph: false
+text_encoder:  RN50
+features: [64, 128, 256, 512, 1024]
+threshold: 0.5
+

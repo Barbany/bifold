@@ -1,0 +1,10 @@
+---
+name: single
+n_samples: 100
+dataset_path: ${dataset_root}/single_data/All_${.n_samples}.pkl
+depth_scale: 255
+image_size: 224 
+is_bimanual: false
+voxel_size: 0.0125
+neighbor_radius: 0.045
+num_nodes: 200
