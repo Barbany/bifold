@@ -2,6 +2,22 @@ import numpy as np
 from torch import nn
 
 
+def print_trainable_parameters(model):
+    """
+    Prints the number of trainable parameters in the model.
+    """
+    trainable_params = 0
+    all_param = 0
+    for _, param in model.named_parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    print(
+        f"trainable params: {trainable_params} || all params: {all_param} || trainable%: "
+        f"{100 * trainable_params / all_param}"
+    )
+
+
 def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False):
     """
     grid_size: int of the grid height and width
@@ -51,6 +67,15 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
 
     emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
     return emb
+
+
+def get_1d_sincos_pos_embed(embed_dim, num_pos):
+    """
+    embed_dim: output dimension for each position
+    pos: a list of positions to be encoded: size (M,)
+    out: (M, D)
+    """
+    return get_1d_sincos_pos_embed_from_grid(embed_dim, np.arange(num_pos, dtype=np.float32))
 
 
 def pair(t):

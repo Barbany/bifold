@@ -5,4 +5,4 @@ image_size: 384
 depth_scale: 1000
 is_bimanual: true
 max_context_length: 3
-
+consecutive: ${..consecutive}

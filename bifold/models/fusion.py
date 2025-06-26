@@ -7,13 +7,24 @@ from .utils import init_weights
 
 class ConcatTransformer(nn.Module):
     def __init__(
-        self, dim, heads, depth, dropout, mlp_ratio, num_modalities=2, num_registers=0, **kwargs
+        self,
+        dim,
+        heads,
+        depth,
+        dropout,
+        mlp_ratio,
+        num_modalities=2,
+        num_registers=0,
+        return_attentions=False,
+        **kwargs,
     ):
         super().__init__()
         self.num_modalities = num_modalities
         # type embedding
         self.token_type_embeddings = nn.Embedding(self.num_modalities, dim)
         self.token_type_embeddings.apply(init_weights)
+
+        self.return_attentions = return_attentions
 
         self.dim_head = int(dim / heads)
         self.mlp_dim = dim * mlp_ratio
@@ -56,12 +67,16 @@ class ConcatTransformer(nn.Module):
         x = torch.cat(concat, dim=1)
 
         # transformer encoder
-        x = self.transformer_encoder(x, **kwargs)
+        if self.return_attentions:
+            x, attn = self.transformer_encoder(x, return_attention=True, **kwargs)
+        else:
+            x = self.transformer_encoder(x, **kwargs)
+            attn = None
 
         # pick & place heatmap
         # take features corresponding to the last modality
         features = x[:, -inputs[-1].shape[1] :, :]
-        return features, None
+        return features, attn, x
 
 
 class CrossAttention(nn.Module):
@@ -107,9 +122,11 @@ class CrossAttention(nn.Module):
         if attention_masks is not None:
             cross_attn_kwargs = {
                 "key_padding_mask": None,
-                "attn_mask": attention_masks[:, : condition_tokens.shape[1]]
-                .unsqueeze(1)
-                .repeat(self.num_heads, input_tokens.shape[1], 1),
+                "attn_mask": (
+                    attention_masks[:, : condition_tokens.shape[1]]
+                    .unsqueeze(1)
+                    .repeat(self.num_heads, input_tokens.shape[1], 1)
+                ),
             }
         else:
             cross_attn_kwargs = {}

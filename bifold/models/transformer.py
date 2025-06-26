@@ -23,7 +23,7 @@ class Attention(nn.Module):
             else nn.Identity()
         )
 
-    def forward(self, x, attention_masks=None):
+    def forward(self, x, attention_masks=None, return_attention=False):
 
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads), qkv)
@@ -39,7 +39,10 @@ class Attention(nn.Module):
 
         out = torch.matmul(attn, v)
         out = rearrange(out, "b h n d -> b n (h d)")
-        return self.to_out(out)
+        if return_attention:
+            return self.to_out(out), attn
+        else:
+            return self.to_out(out)
 
 
 class Transformer(nn.Module):
@@ -57,8 +60,18 @@ class Transformer(nn.Module):
                 ])
             )
 
-    def forward(self, x, attention_masks=None):
+    def forward(self, x, attention_masks=None, return_attention=False):
+        all_attn = []
         for attn, ff in self.layers:  # type: ignore
-            x = attn(x, attention_masks=attention_masks) + x
+            if return_attention:
+                out, attn = attn(x, attention_masks=attention_masks, return_attention=True)
+                x = out + x
+                all_attn.append(attn.detach().cpu().numpy())
+            else:
+                x = attn(x, attention_masks=attention_masks, return_attention=return_attention) + x
             x = ff(x) + x
-        return x
+
+        if return_attention:
+            return x, all_attn
+        else:
+            return x

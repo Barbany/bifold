@@ -1,8 +1,8 @@
 # BiFold: Bimanual Cloth Folding with Language Guidance
 
-[`Website`](https://barbany.github.io/bifold/) | [`BibTeX`](#-citation)  | [`arXiv`](https://arxiv.org/abs/2501.16458) | [`Dataset`](https://zenodo.org/records/14851100)
+[`Website`](https://barbany.github.io/bifold/) | [`BibTeX`](#-citation)  | [`arXiv`](https://arxiv.org/abs/2501.16458) | [`arXiv workshop`](https://arxiv.org/abs/2505.07600) | [`Dataset`](https://zenodo.org/records/14851100)
 
-Official implementation of the paper.
+Official implementation of the ICRA paper and the ICRA workshop extension "Beyond Static Perception: Integrating Temporal Context into VLMs for Cloth Folding".
 
 **[Oriol Barbany](https://barbany.github.io/), [Adrià Colomé](https://www.iri.upc.edu/staff/acolome) and [Carme Torras](https://www.iri.upc.edu/people/torras/)**
 
@@ -19,6 +19,7 @@ Official implementation of the paper.
     - [👐 Bimanual simulated dataset](#-bimanual-simulated-dataset)
     - [📸 Real-world dataset](#-real-world-dataset)
   - [🏃 Running the code](#-running-the-code)
+  - [👀 Visualizing model attentions and features](#-visualizing-model-attentions-and-features)
   - [🏷 License](#-license)
   - [🤝 Acknowledgements](#-acknowledgements)
   - [📚 Citation](#-citation)
@@ -190,6 +191,17 @@ you can use the AdamW optimizer instead of the default one.
 
 Make sure to familiarize yourself with the Hydra framework if you have any doubt. The composed configuration will be saved in a file named `config.yaml` of your output directory.
 
+## 👀 Visualizing model attentions and features
+
+You can visualize the PCA representation of the visual features and the attentions by running:
+```bash
+python -m bifold.utils.attention_visualization
+```
+
+You can add parameters to the comment above to load a model with non-default parameters or to not visualize everything. For example, in the workshop paper, we visualize only the PCA of the visual features without LoRA and using the original SigLIP weights by running:
+```bash
+python -m bifold.utils.attention_visualization load_pretrained=false model.lora=false visualize_attention=false
+```
 
 ## 🏷 License
 
@@ -204,15 +216,22 @@ The custom `PyFlex` code is included with its [original license](./deps/PyFlex/L
 
 ## 📚 Citation
 
-If you find this work useful, please cite our work:
+If you find this work useful, please cite our works:
 ```
-@misc{barbany2025bifold,
-    title={{BiFold: Bimanual Cloth Folding with Language Guidance}}, 
-    author={Oriol Barbany and Adrià Colomé and Carme Torras},
-    year={2025},
-    eprint={2501.16458},
-    archivePrefix={arXiv},
-    primaryClass={cs.RO},
-    url={https://arxiv.org/abs/2501.16458}, 
+@inproceedings{bifold,
+  title={{BiFold: Bimanual Cloth Folding with Language Guidance}},
+  author={Oriol Barbany and Adrià Colomé and Carme Torras},
+  booktitle={IEEE International Conference on Robotics and Automation},
+  year={2025}
+}
+
+@misc{barbany25temporalcontext,
+  title={{Beyond Static Perception: Integrating Temporal Context into VLMs for Cloth Folding}},
+  author={Oriol Barbany and Adrià Colomé and Carme Torras},
+  year={2025},
+  eprint={2505.07600},
+  archivePrefix={arXiv},
+  primaryClass={cs.RO},
+  url={https://arxiv.org/abs/2505.07600}, 
 }
 ```

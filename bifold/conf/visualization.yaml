@@ -1,0 +1,12 @@
+---
+defaults:
+  - config
+  - _self_
+
+load_pretrained: true
+
+visualize_actions: true
+visualize_attention: true
+visualize_features: true
+
+n_visualized_samples: 10

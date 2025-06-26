@@ -31,6 +31,7 @@ dataset_root: ${oc.env:HOME}/bifold/datasets
 softgym_cache: ${dataset_root}/softgym_cache
 visualize_model_inputs: false
 visualize_predictions: false
+consecutive: false
 hydra:
   output_subdir:
   run:
@@ -51,6 +52,8 @@ hydra:
           - num_evals
           - softgym_task
           - softgym_cache
+          - visualize_attention
+          - visualize_actions
           - num_workers
           - load_best
           - test_batch_size

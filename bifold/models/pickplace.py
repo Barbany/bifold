@@ -61,7 +61,9 @@ class PickPlaceConvDecoder(nn.Module):
 
         dim = inputs[-1].shape[-1]
 
-        fused_features, return_dict["attn_weights"] = self.fusion(*inputs, **kwargs)
+        fused_features, return_dict["attn_weights"], return_dict["out_features"] = self.fusion(
+            *inputs, **kwargs
+        )
 
         if self.mask_head is not None:
             # Obviate patch token and unpatchify

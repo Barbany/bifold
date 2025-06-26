@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import trimesh
+from scipy.spatial import KDTree
 from tqdm import tqdm
 
 # Prompts taken from
@@ -547,3 +548,75 @@ def clean_actions(
                 index_r += 1
     assert len(aligned_actions_l) == len(aligned_actions_r)
     return aligned_actions_l, aligned_actions_r
+
+
+def create_textured_obj(cloth3d_textured_file, mesh_file, sample_group, min_distance=1e-6):
+    # Read texture coordinates from Cloth3D
+    vertices = []
+    texture_coords = []
+    faces_verts = []
+    faces_texts = []
+    metadata = []
+
+    # Textured obj is created by using NOCS vertices and assigning material
+    with open(cloth3d_textured_file, "r") as f:
+        for line in f.readlines():
+            if line.startswith("v "):
+                vertices.append([float(n) for n in line.replace("v ", "").split(" ")])
+            elif line.startswith("vt "):
+                texture_coords.append(line)
+            elif line.startswith("f "):
+                face_verts = []
+                face_texts = []
+                for element in line.replace("f ", "").rsplit():
+                    vertex_id, texture_id = element.split("/")
+                    face_verts.append(vertex_id)
+                    face_texts.append(texture_id)
+                faces_verts.append(face_verts)
+                faces_texts.append(face_texts)
+            else:
+                if line.strip():
+                    metadata.append(line)
+
+    vertices = np.array(vertices)
+
+    # Read target vertices and faces
+    target_vertices = sample_group["mesh"]["cloth_nocs_verts"][:]
+    target_faces = sample_group["mesh"]["cloth_faces_tri"][:]
+
+    # Map vertices to target vertices
+    distances, trg_to_src = KDTree(vertices).query(target_vertices)
+    assert np.all(distances < min_distance), f"Maximum distance is {distances.max()}"
+
+    target_texts = []
+
+    # Find which face we are in (3 out of the 4 vertices match)
+    for target_face in tqdm(target_faces, leave=False, desc="Baking cloth3d texture"):
+        found = False
+        trg_verts = [str(v + 1) for v in trg_to_src[target_face]]
+        for src_verts, src_texts in zip(faces_verts, faces_texts):
+            common_elements = len(set(src_verts) & set(trg_verts))
+            if common_elements == 3:
+                # The faces correspond
+                found = True
+                target_texts.append([src_texts[src_verts.index(v)] for v in trg_verts])
+                break
+        assert found
+
+    # Write mesh in .obj format with inferred textures coordinates
+    with open(mesh_file, "w") as f:
+        f.writelines(metadata)
+
+        for v in sample_group["mesh"]["cloth_verts"][:]:
+            f.write(f"v {v[0]} {v[1]} {v[2]}\n")
+
+        f.writelines(texture_coords)
+        for face_vert, face_text in zip(
+            sample_group["mesh"]["cloth_faces_tri"][:],
+            target_texts,
+        ):
+            f.write(
+                f"f {face_vert[0] + 1}/{face_text[0]} "
+                f"{face_vert[1] + 1}/{face_text[1]} "
+                f"{face_vert[2] + 1}/{face_text[2]}\n"
+            )

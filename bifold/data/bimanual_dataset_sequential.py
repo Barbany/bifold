@@ -34,7 +34,7 @@ class BimanualDatasetSequential(BaseDataset):
         self.actions_df = pd.read_csv(
             os.path.join(
                 self.dataset_path,
-                "sequential_actions",
+                "consecutive_actions" if cfg.get("consecutive", False) else "sequential_actions",
                 self.partition + ".csv",
             ),
             converters=converters,
