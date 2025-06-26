@@ -18,7 +18,6 @@ except ImportError:
     BICUBIC = Resampling.BICUBIC
 
 from . import depth_augmentations, mask_augmentations
-from .utils import compute_edge_attr, fps, voxelize_pointcloud
 
 DUMMY = -torch.ones((8, 2))
 
@@ -29,22 +28,11 @@ class Processor:
         cfg,
         partition,
         max_context_length=None,
-        num_nodes=None,
-        neighbor_radius=None,
-        voxel_size=None,
         autoprocessor_name=None,
     ):
-        self.requires_graph = cfg.requires_graph
         self.image_size = cfg.model_image_size
         self.cfg = cfg
         self.partition = partition
-        if self.requires_graph:
-            from torch_geometric.data import Data
-
-            self.torch_geometric_data = Data
-            self.num_nodes = num_nodes
-            self.neighbor_radius = neighbor_radius
-            self.voxel_size = voxel_size
 
         self.resize = v2.Resize(self.image_size, interpolation=BICUBIC)
 
@@ -116,12 +104,22 @@ class Processor:
                 (max_context_length, 3, self.image_size, self.image_size),
                 dtype=torch.float32,
             )
+            self.dummy_raw_rgb = torch.ones(
+                (max_context_length, self.image_size, self.image_size, 3),
+                dtype=torch.float32,
+            )
         else:
             self.process_context = False
 
     def _process_depth(self, depth, mask=None):
         mask = mask if self.cfg.mask_depth else None
         return self.depth_transforms({"depth": depth, "mask": mask})
+
+    def _decode_instruction(self, token_ids):
+        if self.autoprocessor is None:
+            raise NotImplementedError
+        else:
+            return self.autoprocessor.tokenizer.convert_ids_to_tokens(token_ids)
 
     def _process_instruction(self, instruction):
         if self.autoprocessor is None:
@@ -152,6 +150,7 @@ class Processor:
 
         processed_depth = []
         processed_rgb = []
+        raw_rgb = []
 
         for item in context[-self.max_context_length :]:
             processed_depth.append(self._process_depth(item["depth"], mask=item.get("mask")))
@@ -161,8 +160,14 @@ class Processor:
                         item["rgb"] * item["mask"][:, :, None] + (1 - item["mask"][:, :, None]) * 77
                     ).astype(np.uint8)
                     processed_rgb.append(self._process_rgb(masked_rgb))
+                    raw_rgb.append(
+                        torch.from_numpy(np.array(self.resize(Image.fromarray(masked_rgb))))
+                    )
                 else:
                     processed_rgb.append(self._process_rgb(item["rgb"]))
+                    raw_rgb.append(
+                        torch.from_numpy(np.array(self.resize(Image.fromarray(item["rgb"]))))
+                    )
 
         pad_length = len(self.dummy_depth) - len(processed_depth)
         # Pad context with dummies and indicate them with attention mask
@@ -177,10 +182,14 @@ class Processor:
                 return_dict["rgb_context"] = torch.cat(
                     (torch.stack(processed_rgb), self.dummy_rgb[:pad_length])
                 )
+                return_dict["raw_rgb_context"] = torch.cat(
+                    (torch.stack(raw_rgb), self.dummy_raw_rgb[:pad_length])
+                )
         else:
             return_dict["depth_context"] = self.dummy_depth
             if compute_rgb:
                 return_dict["rgb_context"] = self.dummy_rgb
+                return_dict["raw_rgb_context"] = self.dummy_raw_rgb
 
         return return_dict
 
@@ -213,44 +222,6 @@ class Processor:
 
         if mask is not None:
             return_dict["mask"] = self.mask_transforms(mask)
-            mask_ori = return_dict["mask"][0].numpy()
-        else:
-            mask_ori = None
-
-        if self.requires_graph:
-
-            assert K is not None, "Intrinsics are required for creating the graph"
-            scaled_K = K.copy()
-
-            scaled_K[0, :] /= scale_h
-            scaled_K[1, :] /= scale_w
-
-            return_dict["graph"], sampled_pc = self.create_graph(
-                depth_ori=depth_ori,
-                mask=mask_ori,
-                matrix_world_to_camera=matrix_world_to_camera,
-                K=scaled_K,
-            )
-            for k, val in kwargs.items():
-                if "pick" in k:
-                    # Not really a heatmap but point probability
-                    # Named heatmap so that it can be used seamlessly with
-                    # the heatmap loss framework
-                    return_dict[f"{k}_heatmap"] = self.get_pick_graph_heatmap(
-                        pick_pixel=val / scale_h,
-                        sampled_pc=sampled_pc,
-                        depth_ori=depth_ori,
-                        matrix_world_to_camera=matrix_world_to_camera,
-                        K=scaled_K,
-                    )
-            if self.partition == "test":
-                return_dict["pixel_sampled_pc"] = torch.from_numpy(
-                    self.get_pixel_from_world_coords(
-                        sampled_pc,
-                        matrix_world_to_camera=matrix_world_to_camera,
-                        K=scaled_K,
-                    )
-                )
 
         if rgb is not None:
             if mask is not None:
@@ -266,6 +237,9 @@ class Processor:
         if instruction is not None:
             return_dict["raw_instruction"] = instruction
             return_dict["instruction"] = self._process_instruction(instruction)
+            return_dict["decoded_instruction"] = self._decode_instruction(
+                return_dict["instruction"]
+            )
 
         if context is not None and self.process_context:
             return_dict.update(self._process_context(context, compute_rgb=rgb is not None))
@@ -295,8 +269,6 @@ class Processor:
                         else:
                             return_dict[f"{k}_heatmap"] = self._make_gaussmap()
                             return_dict[k] = DUMMY
-                    elif self.requires_graph and return_dict[k] is None:
-                        return_dict[k] = DUMMY
         return return_dict
 
     def _spatial_augmentation(self, return_dict):
@@ -353,21 +325,6 @@ class Processor:
         pixel[:, 1] += dy
         assert torch.all(pixel >= 0) and torch.all(pixel < size)
         return pixel
-
-    def create_graph(self, depth_ori, mask, matrix_world_to_camera, K):
-        world_coordinates = self.get_world_coords_from_pixels(depth_ori, matrix_world_to_camera, K)
-        world_coords = world_coordinates[:, :, :3].reshape((-1, 3))
-        pointcloud = world_coords[mask.flatten() > 0].astype(np.float32)
-        vox_pc = voxelize_pointcloud(pointcloud, self.voxel_size)
-        sampled_pc = fps(vox_pc, self.num_nodes).astype(np.float32)
-
-        normalized_vox_pc = sampled_pc - np.mean(sampled_pc, axis=0)
-        node_attr = torch.from_numpy(normalized_vox_pc)
-        edges, edge_attr = compute_edge_attr(normalized_vox_pc, self.neighbor_radius)
-        graph_data = self.torch_geometric_data.from_dict(
-            {"x": node_attr, "edge_index": edges, "edge_attr": edge_attr}
-        )
-        return graph_data, sampled_pc
 
     def get_pick_graph_heatmap(self, pick_pixel, sampled_pc, depth_ori, matrix_world_to_camera, K):
         if pick_pixel is not None:

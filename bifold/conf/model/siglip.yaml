@@ -2,7 +2,6 @@
 name: siglip
 image_size: ${train_dataset.image_size}
 is_bimanual: ${train_dataset.is_bimanual}
-requires_graph: false
 patch_size: 16
 automodel_name: google/siglip-base-patch${model.patch_size}-${model.image_size}
 dim: 768
@@ -20,3 +19,5 @@ depth: 8
 heads: 16
 mlp_ratio: 4
 dropout: 0.0
+use_pos_embed: false
+text_max_length: 64

@@ -50,7 +50,6 @@ class BaseModel(nn.Module):
         is_bimanual,
         device,
         threshold=0.01,
-        requires_graph=False,
         constrain_pick_mask=True,
         **kwargs,
     ):
@@ -58,8 +57,7 @@ class BaseModel(nn.Module):
         self.image_size = image_size
         self.is_bimanual = is_bimanual
         self.device = device
-        self.threshold = 0.01
-        self.requires_graph = requires_graph
+        self.threshold = threshold
         self.constrain_pick_mask = constrain_pick_mask
         if not self.constrain_pick_mask:
             print("This run will not constrain the pick to the mask")
@@ -76,45 +74,21 @@ class BaseModel(nn.Module):
         for param in self.named_parameters():
             param[1].requires_grad = False
 
-    def get_action(self, sample, return_raw_output=False):
+    def get_action(self, sample, return_raw_output=False, **kwargs):
         with torch.no_grad():
-            output = self.forward(sample)
+            output = self.forward(sample, **kwargs)
 
         if self.is_bimanual:
-            if self.requires_graph:
-                arange = torch.arange(len(output["left_pick_heatmap"]))
-                raw_left_pick = (
-                    sample["pixel_sampled_pc"][
-                        arange,
-                        :,
-                        output["left_pick_heatmap"].argmax(axis=1),
-                    ]
-                    .squeeze(1)
-                    .cpu()
-                    .numpy()
-                )
-                left_confidence = torch.max(output["left_pick_heatmap"], dim=1)[0].cpu().numpy()
-
-                raw_right_pick = (
-                    sample["pixel_sampled_pc"][
-                        arange, :, output["right_pick_heatmap"].argmax(axis=1)
-                    ]
-                    .squeeze(1)
-                    .cpu()
-                    .numpy()
-                )
-                right_confidence = torch.max(output["right_pick_heatmap"], dim=1)[0].cpu().numpy()
-            else:
-                raw_left_pick, left_confidence = sample_from_heatmap(
-                    output["left_pick_heatmap"],
-                    sample["mask"],
-                    return_confidence=True,
-                )
-                raw_right_pick, right_confidence = sample_from_heatmap(
-                    output["right_pick_heatmap"],
-                    sample["mask"],
-                    return_confidence=True,
-                )
+            raw_left_pick, left_confidence = sample_from_heatmap(
+                output["left_pick_heatmap"],
+                sample["mask"],
+                return_confidence=True,
+            )
+            raw_right_pick, right_confidence = sample_from_heatmap(
+                output["right_pick_heatmap"],
+                sample["mask"],
+                return_confidence=True,
+            )
 
             # Make sure at least one action is performed
             # If everything above confidence, perform bimanual action
@@ -147,22 +121,10 @@ class BaseModel(nn.Module):
                 right_place=right_place,
             )
         else:
-            if self.requires_graph:
-                pick = (
-                    sample["pixel_sampled_pc"][
-                        torch.arange(len(output["pick_heatmap"])),
-                        :,
-                        output["pick_heatmap"].argmax(axis=1),
-                    ]
-                    .squeeze(1)
-                    .cpu()
-                    .numpy()
-                )
-            else:
-                pick = sample_from_heatmap(
-                    output["pick_heatmap"],
-                    sample.get("mask") if self.constrain_pick_mask else None,
-                )
+            pick = sample_from_heatmap(
+                output["pick_heatmap"],
+                sample.get("mask") if self.constrain_pick_mask else None,
+            )
 
             action = Action(
                 pick=pick,

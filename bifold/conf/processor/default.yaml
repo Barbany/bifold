@@ -1,7 +1,6 @@
 text_encoder: ${model.text_encoder}
 sigma: 5
-model_image_size: ${model.image_size} 
-requires_graph: ${model.requires_graph}
+model_image_size: ${model.image_size}
 spatial_augment: true
 spatial_augmentations:
   max_augmentation_trials: 5

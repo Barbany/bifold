@@ -1,3 +1,4 @@
+from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as TorchDataset
 
 from .processor import Processor
@@ -17,9 +18,6 @@ class BaseDataset(TorchDataset):
         self.processor = Processor(
             cfg=processor_config,
             partition=partition,
-            num_nodes=cfg.num_nodes,
-            neighbor_radius=cfg.neighbor_radius,
-            voxel_size=cfg.voxel_size,
             *args,
             **kwargs,
         )
@@ -43,11 +41,7 @@ class Datasets:
         return Dataset(cfg, *args, **kwargs, partition=partition)
 
     @staticmethod
-    def get_dataloaders(cfg, *args, **kwargs):
-        if cfg.processor.requires_graph:
-            from torch_geometric.loader import DataLoader
-        else:
-            from torch.utils.data import DataLoader
+    def get_dataloaders(cfg, shuffle_test=False, *args, **kwargs):
 
         if cfg.eval_only:
             train_dataloader = None
@@ -89,7 +83,10 @@ class Datasets:
         input_processor = test_dataset.processor
 
         test_dataloader = DataLoader(
-            dataset=test_dataset, batch_size=cfg.test_batch_size  # type: ignore
+            dataset=test_dataset,
+            batch_size=cfg.test_batch_size,
+            shuffle=shuffle_test,
+            num_workers=cfg.num_workers,
         )
 
         return train_dataloader, test_dataloader, input_processor
